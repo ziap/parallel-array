@@ -10,7 +10,7 @@
 		"semiColons": false,
 		"singleQuote": true,
 		"proseWrap": "preserve",
-		"include": ["src/", "www/", "deno.json"]
+		"include": ["src/", "www/", "deno.json", "README.md"]
 	},
 	"lint": {
 		"include": ["src/"],
