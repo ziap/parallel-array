@@ -1,4 +1,4 @@
-const mapping = {
+const arrayTypes = {
 	'i8': Int8Array,
 	'u8': Uint8Array,
 	'i16': Int16Array,
@@ -9,9 +9,9 @@ const mapping = {
 	'f64': Float64Array,
 } as const
 
-type Constructors = (typeof mapping)[keyof typeof mapping]
+type Constructors = (typeof arrayTypes)[keyof typeof arrayTypes]
 type ArrayTypes = InstanceType<Constructors>
-type Constraint = Record<string, keyof typeof mapping>
+type Constraint = Record<string, keyof typeof arrayTypes>
 
 /**
  * Represents a single item within a {@link ParallelArray}.
@@ -25,7 +25,7 @@ export type Item<T extends Constraint> = Record<keyof T, number>
  * This provides direct access to the underlying typed arrays.
  */
 type View<T extends Constraint> = {
-	[K in keyof T]: InstanceType<(typeof mapping)[T[K]]>
+	[K in keyof T]: InstanceType<(typeof arrayTypes)[T[K]]>
 }
 
 function allocateArrays(
@@ -65,8 +65,7 @@ function reallocate(
 }
 
 function alignCapacity(capacity: number): number {
-	const aligned = 1 << (32 - Math.clz32(capacity - 1))
-	return aligned
+	return 1 << (32 - Math.clz32(capacity - 1))
 }
 
 /**
@@ -80,10 +79,10 @@ function alignCapacity(capacity: number): number {
  */
 export default class ParallelArray<T extends Constraint> {
 	private constructor(
-		private constructors: readonly Constructors[],
-		private data: ArrayTypes[],
+		private readonly constructors: Constructors[],
+		private readonly keys: (keyof T)[],
+		private data: readonly ArrayTypes[],
 		private items: Record<keyof T, ArrayTypes>,
-		private keys: readonly (keyof T)[],
 		private size: number,
 		private capacity: number,
 		private updated: boolean,
@@ -160,14 +159,13 @@ export default class ParallelArray<T extends Constraint> {
 	): ParallelArray<T1> {
 		const aligned = alignCapacity(Math.max(capacity, 4))
 		const keys = Object.keys(layout)
-		const constructors = keys.map((k: keyof T1) => mapping[layout[k]])
-		const data = allocateArrays(constructors, aligned)
+		const constructors = keys.map((k: keyof T1) => arrayTypes[layout[k]])
 
 		return new ParallelArray<T1>(
 			constructors,
-			data,
-			{} as Record<keyof T1, ArrayTypes>,
 			keys,
+			allocateArrays(constructors, aligned),
+			{} as Record<keyof T1, ArrayTypes>,
 			0,
 			aligned,
 			true,
@@ -187,9 +185,9 @@ export default class ParallelArray<T extends Constraint> {
 
 		return new ParallelArray<T>(
 			this.constructors,
+			this.keys,
 			data,
 			{} as Record<keyof T, ArrayTypes>,
-			this.keys,
 			this.size,
 			this.capacity,
 			true,
@@ -270,7 +268,7 @@ export default class ParallelArray<T extends Constraint> {
 	 * @param item - The new value for the item.
 	 */
 	set(idx: number, item: Readonly<Item<T>>): void {
-		for (let i = 0; i < this.data.length; ++i) {
+		for (let i = 0; i < this.keys.length; ++i) {
 			this.data[i][idx] = item[this.keys[i]]
 		}
 	}
