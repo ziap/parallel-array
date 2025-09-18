@@ -18,7 +18,7 @@ type Particle = Item<typeof particleLayout>
 console.log(`Setting up shared read-only data for ${NUM_ITEMS} items...`)
 
 // ParallelArray (ParallelArray) setup
-const pArray: ParallelArray<typeof particleLayout> = ParallelArray.withCapacity(
+const pArray = ParallelArray.withCapacity(
 	particleLayout,
 	NUM_ITEMS,
 )
@@ -26,7 +26,7 @@ const pArray: ParallelArray<typeof particleLayout> = ParallelArray.withCapacity(
 // Array of Objects (Array of Objects) setup
 // We use an IIFE to populate both arrays with the exact same random data.
 const aArray: readonly Particle[] = (() => {
-	const arr: Particle[] = []
+	const arr = new Array<Particle>()
 	for (let i = 0; i < NUM_ITEMS; i++) {
 		const particle = {
 			id: i,
@@ -41,8 +41,6 @@ const aArray: readonly Particle[] = (() => {
 	return arr
 })()
 
-// Pre-generate a list of random indices to ensure the random access pattern is
-// identical for both data structures and to avoid measuring Math.random() time.
 const randomIndices = new Uint32Array(NUM_ITEMS)
 for (let i = 0; i < NUM_ITEMS; i++) {
 	randomIndices[i] = Math.floor(Math.random() * NUM_ITEMS)
@@ -50,11 +48,8 @@ for (let i = 0; i < NUM_ITEMS; i++) {
 
 console.log('Data setup complete. Running benchmarks...\n')
 
-// === WRITE BENCHMARKS ===
-// These tests create and populate the arrays within the benchmark function.
-
 Deno.bench({
-	name: 'Write: Array of Objects',
+	name: 'Write: Array of Objects - Push',
 	group: 'Write Performance',
 	fn: () => {
 		const arr: Particle[] = []
@@ -88,7 +83,7 @@ Deno.bench({
 })
 
 Deno.bench({
-	name: 'Write: ParallelArray',
+	name: 'Write: ParallelArray - Push',
 	group: 'Write Performance',
 	fn: () => {
 		const arr = ParallelArray.init(particleLayout)
@@ -105,7 +100,7 @@ Deno.bench({
 })
 
 Deno.bench({
-	name: 'Write: ParallelArray - Preallocate',
+	name: 'Write: ParallelArray - Preallocate + Push',
 	group: 'Write Performance',
 	fn: () => {
 		const arr = ParallelArray.withCapacity(particleLayout, NUM_ITEMS)
@@ -139,9 +134,6 @@ Deno.bench({
 		}
 	},
 })
-
-// === SEQUENTIAL READ BENCHMARKS ===
-// These tests read from the pre-populated global arrays.
 
 Deno.bench({
 	name: 'Wide Sequential Read: Array of Objects',
@@ -193,9 +185,6 @@ Deno.bench({
 	},
 })
 
-// === RANDOM ACCESS READ BENCHMARKS ===
-// These tests read from the pre-populated global arrays using random indices.
-
 Deno.bench({
 	name: 'Wide Random Read: Array of Objects',
 	group: 'Random Read',
@@ -242,6 +231,35 @@ Deno.bench({
 		const { x } = pArray.view()
 		for (const idx of randomIndices) {
 			sum += x[idx]
+		}
+	},
+})
+
+Deno.bench({
+	name: 'Copy: ParallelArray',
+	group: 'Copy Performance',
+	fn: () => {
+		pArray.copy()
+	},
+})
+
+Deno.bench({
+	name: 'Copy: Array of Objects - structuredClone',
+	group: 'Copy Performance',
+	fn: () => {
+		structuredClone(aArray)
+	},
+})
+
+Deno.bench({
+	name: 'Copy: Array of Objects - Manual Loop',
+	group: 'Copy Performance',
+	fn: () => {
+		const newAArray = new Array<Particle>(aArray.length)
+
+		for (let i = 0; i < aArray.length; i++) {
+			const p = aArray[i]
+			newAArray[i] = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, id: p.id }
 		}
 	},
 })
