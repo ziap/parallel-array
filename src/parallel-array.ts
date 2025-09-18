@@ -207,12 +207,9 @@ export default class ParallelArray<T extends Constraint> {
 			this.data = reallocate(this.data, this.constructors, this.capacity)
 		}
 
+		this.set(this.size, item)
 		this.size += 1
 		this.updated = true
-
-		for (let i = 0; i < this.data.length; ++i) {
-			this.data[i][this.size - 1] = item[this.keys[i]]
-		}
 	}
 
 	/**
