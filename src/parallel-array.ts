@@ -28,6 +28,47 @@ type View<T extends Constraint> = {
 	[K in keyof T]: InstanceType<(typeof mapping)[T[K]]>
 }
 
+function allocateArrays(
+	constructors: ArrayLike<Constructors>,
+	capacity: number,
+): ArrayTypes[] {
+	let size = 0
+	for (let i = 0; i < constructors.length; ++i) {
+		const elemSize = constructors[i].BYTES_PER_ELEMENT
+		size = (size + elemSize - 1) & -elemSize
+		size += capacity * elemSize
+	}
+
+	const buffer = new ArrayBuffer(size)
+	const result = new Array<ArrayTypes>(constructors.length)
+	let offset = 0
+	for (let i = 0; i < constructors.length; ++i) {
+		const elemSize = constructors[i].BYTES_PER_ELEMENT
+		offset = (offset + elemSize - 1) & -elemSize
+		result[i] = new constructors[i](buffer, offset, capacity)
+		offset += capacity * elemSize
+	}
+
+	return result
+}
+
+function reallocate(
+	old: ArrayLike<ArrayTypes>,
+	constructors: ArrayLike<Constructors>,
+	capacity: number,
+): ArrayTypes[] {
+	const data = allocateArrays(constructors, capacity)
+	for (let i = 0; i < data.length; ++i) {
+		data[i].set(old[i])
+	}
+	return data
+}
+
+function alignCapacity(capacity: number): number {
+	const aligned = 1 << (32 - Math.clz32(capacity - 1))
+	return aligned
+}
+
 /**
  * A data structure that stores data in a "struct of arrays" format.
  * This can be more memory-efficient and performant for certain operations
@@ -41,17 +82,36 @@ export default class ParallelArray<T extends Constraint> {
 	private constructor(
 		private constructors: readonly Constructors[],
 		private data: ArrayTypes[],
-		private items: { [K in keyof T]: ArrayTypes },
+		private items: Record<keyof T, ArrayTypes>,
 		private keys: readonly (keyof T)[],
 		private size: number,
-		private cap: number,
+		private capacity: number,
+		private updated: boolean,
 	) {}
 
 	/**
-	 * The number of items currently in the parallel array.
+	 * @returns The number of items currently in the parallel array.
 	 */
 	get len(): number {
 		return this.size
+	}
+
+	/**
+	 * Resizes the array to contain a specific number of items.
+	 *
+	 * @note Any new elements added by this expansion (from the old size up to `newSize`)
+	 * will contain zero values and should be manually initialized.
+	 *
+	 * @param newSize - The desired number of items for the array.
+	 */
+	resize(newSize: number): void {
+		this.size = newSize
+		this.updated = true
+
+		if (newSize > this.capacity) {
+			this.capacity = alignCapacity(newSize)
+			this.data = reallocate(this.data, this.constructors, this.capacity)
+		}
 	}
 
 	/**
@@ -62,8 +122,11 @@ export default class ParallelArray<T extends Constraint> {
 	 * underlying typed arrays.
 	 */
 	view(): Readonly<View<T>> {
-		for (let i = 0; i < this.keys.length; ++i) {
-			this.items[this.keys[i]] = this.data[i].subarray(0, this.size)
+		if (this.updated) {
+			for (let i = 0; i < this.keys.length; ++i) {
+				this.items[this.keys[i]] = this.data[i].subarray(0, this.size)
+			}
+			this.updated = false
 		}
 		return this.items as View<T>
 	}
@@ -95,23 +158,19 @@ export default class ParallelArray<T extends Constraint> {
 		layout: T1,
 		capacity: number,
 	): ParallelArray<T1> {
-		const aligned = 1 << (32 - Math.clz32(capacity - 1))
+		const aligned = alignCapacity(capacity)
 		const keys = Object.keys(layout)
 		const constructors = keys.map((k: keyof T1) => mapping[layout[k]])
+		const data = allocateArrays(constructors, aligned)
 
-		const data = new Array<ArrayTypes>(keys.length)
-		for (let i = 0; i < keys.length; ++i) {
-			data[i] = new constructors[i](aligned)
-		}
-
-		const items = keys.map((k, i) => [k, data[i].subarray(0, 0)])
 		return new ParallelArray<T1>(
 			constructors,
 			data,
-			Object.fromEntries(items),
+			{} as Record<keyof T1, ArrayTypes>,
 			keys,
 			0,
 			aligned,
+			true,
 		)
 	}
 
@@ -121,19 +180,19 @@ export default class ParallelArray<T extends Constraint> {
 	 * @returns A new `ParallelArray` instance with the same data.
 	 */
 	copy(): ParallelArray<T> {
-		const data = new Array<ArrayTypes>(this.keys.length)
+		const data = allocateArrays(this.constructors, this.capacity)
 		for (let i = 0; i < this.keys.length; ++i) {
-			data[i] = this.data[i].slice()
+			data[i].set(this.data[i])
 		}
 
-		const items = this.keys.map((k, i) => [k, data[i].subarray(0, 0)])
 		return new ParallelArray<T>(
 			this.constructors,
 			data,
-			Object.fromEntries(items),
+			{} as Record<keyof T, ArrayTypes>,
 			this.keys,
 			this.size,
-			this.cap,
+			this.capacity,
+			true,
 		)
 	}
 
@@ -143,17 +202,14 @@ export default class ParallelArray<T extends Constraint> {
 	 * @param item - The item to add.
 	 */
 	push(item: Item<T>): void {
-		if (this.size === this.cap) {
-			this.cap <<= 1
-
-			for (let i = 0; i < this.data.length; ++i) {
-				const old = this.data[i]
-				this.data[i] = new this.constructors[i](this.cap)
-				this.data[i].set(old)
-			}
+		if (this.size === this.capacity) {
+			this.capacity <<= 1
+			this.data = reallocate(this.data, this.constructors, this.capacity)
 		}
 
 		this.size += 1
+		this.updated = true
+
 		for (let i = 0; i < this.data.length; ++i) {
 			this.data[i][this.size - 1] = item[this.keys[i]]
 		}
@@ -169,6 +225,7 @@ export default class ParallelArray<T extends Constraint> {
 		if (this.size === 0) return false
 
 		this.size -= 1
+		this.updated = true
 
 		if (out === undefined) return true
 

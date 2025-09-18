@@ -72,7 +72,7 @@ Deno.bench({
 })
 
 Deno.bench({
-	name: 'Write: Array of Objects - Preallocate',
+	name: 'Write: Array of Objects - Resize + Assign',
 	group: 'Write Performance',
 	fn: () => {
 		const arr = new Array<Particle>(NUM_ITEMS)
@@ -92,7 +92,6 @@ Deno.bench({
 	name: 'Write: ParallelArray',
 	group: 'Write Performance',
 	fn: () => {
-		// We use withCapacity to be fair, avoiding the resize overhead.
 		const arr = ParallelArray.init(particleLayout)
 		for (let i = 0; i < NUM_ITEMS; i++) {
 			arr.push({
@@ -110,7 +109,6 @@ Deno.bench({
 	name: 'Write: ParallelArray - Preallocate',
 	group: 'Write Performance',
 	fn: () => {
-		// We use withCapacity to be fair, avoiding the resize overhead.
 		const arr = ParallelArray.withCapacity(particleLayout, NUM_ITEMS)
 		for (let i = 0; i < NUM_ITEMS; i++) {
 			arr.push({
@@ -120,6 +118,25 @@ Deno.bench({
 				vx: Math.random() * 10,
 				vy: Math.random() * 10,
 			})
+		}
+	},
+})
+
+Deno.bench({
+	name: 'Write: ParallelArray - Resize + Assign',
+	group: 'Write Performance',
+	fn: () => {
+		const arr = ParallelArray.withCapacity(particleLayout, NUM_ITEMS)
+		arr.resize(NUM_ITEMS)
+
+		const { id, x, y, vx, vy } = arr.view()
+
+		for (let i = 0; i < NUM_ITEMS; i++) {
+			id[i] = i
+			x[i] = Math.random() * 100
+			y[i] = Math.random() * 100
+			vx[i] = Math.random() * 10
+			vy[i] = Math.random() * 10
 		}
 	},
 })
@@ -170,9 +187,9 @@ Deno.bench({
 	group: 'Sequential Read',
 	fn: () => {
 		let sum = 0
-		const xArr = pArray.view().x
+		const { x } = pArray.view()
 		for (let i = 0; i < pArray.len; i++) {
-			sum += xArr[i]
+			sum += x[i]
 		}
 	},
 })
@@ -223,9 +240,9 @@ Deno.bench({
 	group: 'Random Read',
 	fn: () => {
 		let sum = 0
-		const xArr = pArray.view().x
+		const { x } = pArray.view()
 		for (const idx of randomIndices) {
-			sum += xArr[idx]
+			sum += x[idx]
 		}
 	},
 })

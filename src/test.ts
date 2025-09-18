@@ -18,7 +18,7 @@ Deno.test('ParallelArray.init - should initialize with correct internal state', 
 
 	// Whitebox testing: Access private properties using bracket syntax
 	assertEquals(pa['size'], 0, 'Internal size should be 0')
-	assertEquals(pa['cap'], 4, 'Default initial capacity should be 4')
+	assertEquals(pa['capacity'], 4, 'Default initial capacity should be 4')
 	assertEquals(
 		pa['keys'],
 		['x', 'y', 'id', 'health'],
@@ -30,7 +30,11 @@ Deno.test('ParallelArray.withCapacity - should align capacity to the next power 
 	const pa = ParallelArray.withCapacity(layout, 10)
 
 	// Whitebox testing: 1 << (32 - Math.clz32(10 - 1)) => 1 << 4 => 16
-	assertEquals(pa['cap'], 16, 'Internal capacity should be rounded up to 16')
+	assertEquals(
+		pa['capacity'],
+		16,
+		'Internal capacity should be rounded up to 16',
+	)
 	assertEquals(
 		pa['data'][0].length,
 		16,
@@ -39,7 +43,11 @@ Deno.test('ParallelArray.withCapacity - should align capacity to the next power 
 
 	// Minimum capacity is 4
 	const pa1 = ParallelArray.withCapacity(layout, 3)
-	assertEquals(pa1['cap'], 4, 'Internal capacity should be rounded up to 4')
+	assertEquals(
+		pa1['capacity'],
+		4,
+		'Internal capacity should be rounded up to 4',
+	)
 	assertEquals(
 		pa1['data'][0].length,
 		4,
@@ -50,7 +58,7 @@ Deno.test('ParallelArray.withCapacity - should align capacity to the next power 
 Deno.test('ParallelArray.push - should reallocate and double capacity when full', () => {
 	// Start with a capacity of 4, which is the default for .init()
 	const pa = ParallelArray.withCapacity(layout, 4)
-	assertEquals(pa['cap'], 4, 'Initial capacity should be 4')
+	assertEquals(pa['capacity'], 4, 'Initial capacity should be 4')
 
 	const oldDataRef = structuredClone(pa['data'])
 
@@ -61,7 +69,7 @@ Deno.test('ParallelArray.push - should reallocate and double capacity when full'
 	pa.push({ x: 4, y: 4, id: 4, health: 40 })
 
 	assertEquals(pa['size'], 4, 'Size should be 4')
-	assertEquals(pa['cap'], 4, 'Capacity should still be 4')
+	assertEquals(pa['capacity'], 4, 'Capacity should still be 4')
 
 	// This 5th push should trigger the reallocation
 	pa.push({ x: 5, y: 5, id: 5, health: 50 })
@@ -70,7 +78,7 @@ Deno.test('ParallelArray.push - should reallocate and double capacity when full'
 
 	// Whitebox testing: verify reallocation occurred correctly
 	assertEquals(pa['size'], 5, 'Internal size should now be 5')
-	assertEquals(pa['cap'], 8, 'Capacity should have doubled to 8')
+	assertEquals(pa['capacity'], 8, 'Capacity should have doubled to 8')
 
 	const newData = pa['data']
 	assertNotEquals(
