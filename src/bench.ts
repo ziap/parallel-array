@@ -1,4 +1,3 @@
-// benchmark.ts
 import ParallelArray from './parallel-array.ts'
 import type { Item } from './parallel-array.ts'
 
