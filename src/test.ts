@@ -42,7 +42,7 @@ Deno.test('ParallelArray.withCapacity - should align capacity to the next power 
 	)
 
 	// Minimum capacity is 4
-	const pa1 = ParallelArray.withCapacity(layout, 3)
+	const pa1 = ParallelArray.withCapacity(layout, 2)
 	assertEquals(
 		pa1['capacity'],
 		4,

@@ -158,7 +158,7 @@ export default class ParallelArray<T extends Constraint> {
 		layout: T1,
 		capacity: number,
 	): ParallelArray<T1> {
-		const aligned = alignCapacity(capacity)
+		const aligned = alignCapacity(Math.max(capacity, 4))
 		const keys = Object.keys(layout)
 		const constructors = keys.map((k: keyof T1) => mapping[layout[k]])
 		const data = allocateArrays(constructors, aligned)
