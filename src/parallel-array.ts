@@ -138,7 +138,7 @@ export default class ParallelArray<T extends Constraint> {
 	 * @returns A new `ParallelArray` instance.
 	 */
 	static init<T1 extends Constraint>(layout: T1): ParallelArray<T1> {
-		return ParallelArray.withCapacity<T1>(layout, 4)
+		return ParallelArray.withCapacity(layout, 4)
 	}
 
 	/**
@@ -161,7 +161,7 @@ export default class ParallelArray<T extends Constraint> {
 		const keys = Object.keys(layout)
 		const constructors = keys.map((k: keyof T1) => arrayTypes[layout[k]])
 
-		return new ParallelArray<T1>(
+		return new ParallelArray(
 			constructors,
 			keys,
 			allocateArrays(constructors, aligned),
