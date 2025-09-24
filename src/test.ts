@@ -3,12 +3,12 @@ import { assert, assertEquals, assertNotEquals } from '@std/assert'
 import ParallelArray, { type Item } from './parallel-array.ts'
 
 // Define a standard layout for reuse in tests
-const layout = {
+const layout = ParallelArray.defineLayout({
 	x: 'f32',
 	y: 'f32',
 	id: 'u32',
 	health: 'i16',
-} as const
+})
 
 type TestItem = Item<typeof layout>
 

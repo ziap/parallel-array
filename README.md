@@ -53,13 +53,13 @@ This structure offers significant advantages:
 First, define the structure of your data by creating a `layout` object. The keys represent the property names, and the values are strings corresponding to `TypedArray` types.
 
 ```ts
-const layout = {
+const layout = ParallelArray.defineLayout({
 	x: 'f32',
 	y: 'f32',
 	vx: 'f32',
 	vy: 'f32',
 	id: 'u32',
-} as const
+})
 ```
 
 ### Initialization

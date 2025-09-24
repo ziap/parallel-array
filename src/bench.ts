@@ -1,14 +1,13 @@
-import ParallelArray from './parallel-array.ts'
-import type { Item } from './parallel-array.ts'
+import ParallelArray, { type Item } from './parallel-array.ts'
 
 const NUM_ITEMS = 1_000_000
-const particleLayout = {
+const particleLayout = ParallelArray.defineLayout({
 	id: 'u32',
 	x: 'f32',
 	y: 'f32',
 	vx: 'f32',
 	vy: 'f32',
-} as const
+})
 
 type Particle = Item<typeof particleLayout>
 

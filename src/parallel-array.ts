@@ -11,20 +11,20 @@ const arrayTypes = {
 
 type Constructors = (typeof arrayTypes)[keyof typeof arrayTypes]
 type ArrayTypes = InstanceType<Constructors>
-type Constraint = Record<string, keyof typeof arrayTypes>
+type Layout = Record<string, keyof typeof arrayTypes>
 
 /**
  * Represents a single item within a {@link ParallelArray}.
  * The keys are defined by the layout provided to the `ParallelArray`,
  * and all values are numbers.
  */
-export type Item<T extends Constraint> = Record<keyof T, number>
+export type Item<T extends Layout> = Record<keyof T, number>
 
 /**
  * A view into the data of a {@link ParallelArray}.
  * This provides direct access to the underlying typed arrays.
  */
-type View<T extends Constraint> = {
+type View<T extends Layout> = {
 	[K in keyof T]: InstanceType<(typeof arrayTypes)[T[K]]>
 }
 
@@ -77,7 +77,7 @@ function alignCapacity(capacity: number): number {
  * The keys of the object are the names of the fields, and the values are the
  * corresponding typed array identifiers (e.g., 'i32', 'f64').
  */
-export default class ParallelArray<T extends Constraint> {
+export default class ParallelArray<T extends Layout> {
 	private constructor(
 		private readonly constructors: Constructors[],
 		private readonly keys: (keyof T)[],
@@ -87,6 +87,10 @@ export default class ParallelArray<T extends Constraint> {
 		private capacity: number,
 		private updated: boolean,
 	) {}
+
+	static defineLayout<T extends Layout>(layout: T): T {
+		return layout
+	}
 
 	/**
 	 * @returns The number of items currently in the parallel array.
@@ -133,11 +137,11 @@ export default class ParallelArray<T extends Constraint> {
 	/**
 	 * Initializes a new `ParallelArray` with a default capacity.
 	 *
-	 * @template T1 - The layout constraint.
+	 * @template T - The layout constraint.
 	 * @param layout - An object defining the structure of the parallel array.
 	 * @returns A new `ParallelArray` instance.
 	 */
-	static init<T1 extends Constraint>(layout: T1): ParallelArray<T1> {
+	static init<T extends Layout>(layout: T): ParallelArray<T> {
 		return ParallelArray.withCapacity(layout, 4)
 	}
 
@@ -148,24 +152,24 @@ export default class ParallelArray<T extends Constraint> {
 	 * method to pre-allocate memory can speed up a series of `push` operations
 	 * by avoiding intermediate reallocations.
 	 *
-	 * @template T1 - The layout constraint.
+	 * @template T - The layout constraint.
 	 * @param layout - An object defining the structure of the parallel array.
 	 * @param capacity - The initial capacity of the array.
 	 * @returns A new `ParallelArray` instance.
 	 */
-	static withCapacity<T1 extends Constraint>(
-		layout: T1,
+	static withCapacity<T extends Layout>(
+		layout: T,
 		capacity: number,
-	): ParallelArray<T1> {
+	): ParallelArray<T> {
 		const aligned = alignCapacity(Math.max(capacity, 4))
 		const keys = Object.keys(layout)
-		const constructors = keys.map((k: keyof T1) => arrayTypes[layout[k]])
+		const constructors = keys.map((k: keyof T) => arrayTypes[layout[k]])
 
 		return new ParallelArray(
 			constructors,
 			keys,
 			allocateArrays(constructors, aligned),
-			{} as Record<keyof T1, ArrayTypes>,
+			{} as Record<keyof T, ArrayTypes>,
 			0,
 			aligned,
 			true,
